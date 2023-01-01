@@ -28,5 +28,10 @@ resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
     version: '8.0.21'
     administratorLogin: databaseServerLogin
     administratorLoginPassword: databaseServerPassword
+    storage: {
+      storageSizeGB: 20
+      iops: 360
+      autoGrow: 'Enabled'
+    }
   }
 }
