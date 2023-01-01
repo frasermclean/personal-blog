@@ -1,5 +1,12 @@
 @description('Name of the workload / application')
-param workload string
+param appName string
+
+@description('Application environment')
+@allowed([
+  'main'
+  'test'
+])
+param appEnv string = 'main'
 
 @description('Location for resources')
 param location string = resourceGroup().location
@@ -12,10 +19,11 @@ param databaseServerLogin string
 param databaseServerPassword string
 
 var tags = {
-  workload: workload
+  workload: appName
+  environment: appEnv
 }
 
-var databaseServerName = 'dbsrv-${workload}'
+var databaseServerName = 'dbsrv-${appName}-${appEnv}'
 
 // MySQL server
 resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
@@ -43,11 +51,20 @@ resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
   dependsOn: [
     privateDnsZone::virtualNetworkLink
   ]
+
+  // database
+  resource database 'databases' = {
+    name: appName
+    properties: {
+      charset: 'utf8'
+      collation: 'utf8_general_ci'
+    }
+  }
 }
 
 // virtual network
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-07-01' = {
-  name: 'vnet-${workload}'
+  name: 'vnet-${appName}-${appEnv}'
   location: location
   tags: tags
   properties: {
@@ -101,7 +118,7 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-07-01' = {
 
 // private DNS zone for MySQL server
 resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
-  name: '${databaseServerName}.private.mysql.database.azure.com'
+  name: '${appName}-${appEnv}.private.mysql.database.azure.com'
   location: 'global'
 
   resource virtualNetworkLink 'virtualNetworkLinks' = {
