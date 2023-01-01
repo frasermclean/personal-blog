@@ -28,14 +28,60 @@ param wordPressAdminUsername string
 @description('Password for the WordPress admin account')
 param wordPressAdminPassword string
 
-param wordPressTitle string
-
 var tags = {
   workload: appName
   environment: appEnv
 }
 
 var databaseServerName = 'mysql-${appName}-${appEnv}'
+
+// storage account for the app service
+resource storageAccount 'Microsoft.Storage/storageAccounts@2022-09-01' = {
+  name: 'stg${appName}${appEnv}'
+  location: location
+  tags: tags
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+  properties: {
+    accessTier: 'Hot'
+    allowBlobPublicAccess: true
+    allowSharedKeyAccess: true
+    allowCrossTenantReplication: true
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+    networkAcls: {
+      bypass: 'AzureServices'
+      virtualNetworkRules: []
+      ipRules: []
+      defaultAction: 'Allow'
+    }
+    encryption: {
+      requireInfrastructureEncryption: false
+      keySource: 'Microsoft.Storage'
+      services: {
+        file: {
+          keyType: 'Account'
+          enabled: true
+        }
+        blob: {
+          keyType: 'Account'
+          enabled: true
+        }
+      }
+    }
+  }
+
+  resource blobServices 'blobServices' = {
+    name: 'default'
+
+    // container for the app service
+    resource container 'containers' = {
+      name: appName
+    }
+  }
+}
 
 // virtual network
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-07-01' = {
@@ -167,42 +213,74 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
   kind: 'app,linux'
   properties: {
     serverFarmId: appServicePlan.id
+    virtualNetworkSubnetId: virtualNetwork::appServiceSubnet.id
     clientAffinityEnabled: false
-  }
-
-  // app settings
-  resource appSettings 'config' = {
-    name: 'appsettings'
-    properties: {
-      DOCKER_REGISTRY_SERVER_URL: 'https://mcr.microsoft.com'
-      DATABASE_HOST: '${databaseServerName}.mysql.database.azure.com'
-      DATABASE_NAME: databaseServer::database.name
-      DATABASE_USERNAME: databaseServerLogin
-      DATABASE_PASSWORD: databaseServerPassword
-      WORDPRESS_ADMIN_EMAIL: wordPressAdminEmail
-      WORDPRESS_ADMIN_USER: wordPressAdminUsername
-      WORDPRESS_ADMIN_PASSWORD: wordPressAdminPassword
-      WORDPRESS_TITLE: wordPressTitle
-      WORDPRESS_LOCALE_CODE: 'en_US'
-    }
-  }
-
-  // web settings (site config)
-  resource webSettings 'config' = {
-    name: 'web'
-    properties: {
+    siteConfig: {
       linuxFxVersion: 'DOCKER|mcr.microsoft.com/appsvc/wordpress-alpine-php:latest'
       vnetRouteAllEnabled: true
       alwaysOn: true
-    }
-  }
-
-  resource networkConfig 'networkConfig' = {
-    name: 'virtualNetwork'
-    properties: {
-      subnetResourceId: virtualNetwork::appServiceSubnet.id
+      appSettings: [
+        {
+          name: 'DOCKER_REGISTRY_SERVER_URL'
+          value: 'https://mcr.microsoft.com'
+        }
+        {
+          name: 'DATABASE_HOST'
+          value: databaseServer.properties.fullyQualifiedDomainName
+        }
+        {
+          name: 'DATABASE_NAME'
+          value: databaseServer::database.name
+        }
+        {
+          name: 'DATABASE_USERNAME'
+          value: databaseServerLogin
+        }
+        {
+          name: 'DATABASE_PASSWORD'
+          value: databaseServerPassword
+        }
+        {
+          name: 'WORDPRESS_ADMIN_EMAIL'
+          value: wordPressAdminEmail
+        }
+        {
+          name: 'WORDPRESS_ADMIN_USER'
+          value: wordPressAdminUsername
+        }
+        {
+          name: 'WORDPRESS_ADMIN_PASSWORD'
+          value: wordPressAdminPassword
+        }
+        {
+          name: 'WORDPRESS_LOCALE_CODE'
+          value: 'en_US'
+        }
+        {
+          name: 'BLOB_CONTAINER_NAME'
+          value: storageAccount::blobServices::container.name
+        }
+        {
+          name: 'BLOB_STORAGE_ENABLED'
+          value: 'true'
+        }
+        {
+          name: 'BLOB_STORAGE_URL'
+          value: '${storageAccount.name}.blob.${environment().suffixes.storage}'
+        }
+        {
+          name: 'STORAGE_ACCOUNT_KEY'
+          value: listKeys(storageAccount.id, storageAccount.apiVersion).keys[0].value
+        }
+        {
+          name: 'STORAGE_ACCOUNT_NAME'
+          value: storageAccount.name
+        }
+        {
+          name: 'WEBSITES_ENABLE_APP_SERVICE_STORAGE'
+          value: 'true'
+        }
+      ]
     }
   }
 }
-
-output databaseServerHostname string = '${databaseServerName}.${privateDnsZone.name}}'
