@@ -15,9 +15,11 @@ var tags = {
   workload: workload
 }
 
+var databaseServerName = 'dbsrv-${workload}'
+
 // MySQL server
 resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
-  name: 'dbsrv-${workload}'
+  name: databaseServerName
   location: location
   tags: tags
   sku: {
@@ -33,7 +35,14 @@ resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
       iops: 360
       autoGrow: 'Enabled'
     }
+    network: {
+      privateDnsZoneResourceId: privateDnsZone.id
+      delegatedSubnetResourceId: virtualNetwork::databaseSubnet.id
+    }
   }
+  dependsOn: [
+    privateDnsZone::virtualNetworkLink
+  ]
 }
 
 // virtual network
@@ -66,6 +75,8 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-07-01' = {
         name: 'DatabaseSubnet'
         properties: {
           addressPrefix: '10.0.1.0/24'
+          privateEndpointNetworkPolicies: 'Enabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
           delegations: [
             {
               name: 'dlg-database'
@@ -77,5 +88,30 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-07-01' = {
         }
       }
     ]
+  }
+
+  resource appServiceSubnet 'subnets' existing = {
+    name: 'AppServiceSubnet'
+  }
+
+  resource databaseSubnet 'subnets' existing = {
+    name: 'DatabaseSubnet'
+  }
+}
+
+// private DNS zone for MySQL server
+resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+  name: '${databaseServerName}.private.mysql.database.azure.com'
+  location: 'global'
+
+  resource virtualNetworkLink 'virtualNetworkLinks' = {
+    name: virtualNetwork.name
+    location: 'global'
+    properties: {
+      registrationEnabled: true
+      virtualNetwork: {
+        id: virtualNetwork.id
+      }
+    }
   }
 }
