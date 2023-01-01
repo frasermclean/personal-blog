@@ -25,43 +25,6 @@ var tags = {
 
 var databaseServerName = 'dbsrv-${appName}-${appEnv}'
 
-// MySQL server
-resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
-  name: databaseServerName
-  location: location
-  tags: tags
-  sku: {
-    name: 'Standard_B1s'
-    tier: 'Burstable'
-  }
-  properties: {
-    version: '8.0.21'
-    administratorLogin: databaseServerLogin
-    administratorLoginPassword: databaseServerPassword
-    storage: {
-      storageSizeGB: 20
-      iops: 360
-      autoGrow: 'Enabled'
-    }
-    network: {
-      privateDnsZoneResourceId: privateDnsZone.id
-      delegatedSubnetResourceId: virtualNetwork::databaseSubnet.id
-    }
-  }
-  dependsOn: [
-    privateDnsZone::virtualNetworkLink
-  ]
-
-  // database
-  resource database 'databases' = {
-    name: appName
-    properties: {
-      charset: 'utf8'
-      collation: 'utf8_general_ci'
-    }
-  }
-}
-
 // virtual network
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-07-01' = {
   name: 'vnet-${appName}-${appEnv}'
@@ -129,6 +92,43 @@ resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
       virtualNetwork: {
         id: virtualNetwork.id
       }
+    }
+  }
+}
+
+// MySQL database server
+resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
+  name: databaseServerName
+  location: location
+  tags: tags
+  sku: {
+    name: 'Standard_B1s'
+    tier: 'Burstable'
+  }
+  properties: {
+    version: '8.0.21'
+    administratorLogin: databaseServerLogin
+    administratorLoginPassword: databaseServerPassword
+    storage: {
+      storageSizeGB: 20
+      iops: 360
+      autoGrow: 'Enabled'
+    }
+    network: {
+      privateDnsZoneResourceId: privateDnsZone.id
+      delegatedSubnetResourceId: virtualNetwork::databaseSubnet.id
+    }
+  }
+  dependsOn: [
+    privateDnsZone::virtualNetworkLink
+  ]
+
+  // database
+  resource database 'databases' = {
+    name: appName
+    properties: {
+      charset: 'utf8'
+      collation: 'utf8_general_ci'
     }
   }
 }
