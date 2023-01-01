@@ -115,3 +115,5 @@ resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
     }
   }
 }
+
+output databaseServerHostname string = '${databaseServerName}.${privateDnsZone.name}}'
