@@ -23,7 +23,7 @@ var tags = {
   environment: appEnv
 }
 
-var databaseServerName = 'dbsrv-${appName}-${appEnv}'
+var databaseServerName = 'mysql-${appName}-${appEnv}'
 
 // virtual network
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-07-01' = {
@@ -130,6 +130,31 @@ resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
       charset: 'utf8'
       collation: 'utf8_general_ci'
     }
+  }
+}
+
+// app service plan
+resource appServicePlan 'Microsoft.Web/serverfarms@2022-03-01' = {
+  name: 'asp-${appName}-${appEnv}'
+  location: location 
+  tags: tags
+  kind: 'linux'
+  sku: {
+    name: 'B1'
+  }
+  properties: {
+    reserved: true
+  }
+}
+
+// app service
+resource appService 'Microsoft.Web/sites@2022-03-01' = {
+  name: 'app-${appName}-${appEnv}'
+  location: location
+  tags: tags
+  kind: 'app,linux'
+  properties: {
+    serverFarmId: appServicePlan.id
   }
 }
 
