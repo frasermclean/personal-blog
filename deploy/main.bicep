@@ -18,6 +18,18 @@ param databaseServerLogin string
 @description('Password for the MySQL server')
 param databaseServerPassword string
 
+@description('User login for the WordPress admin account')
+param wordPressAdminEmail string
+
+@description('User name for the WordPress admin account')
+param wordPressAdminUsername string
+
+@secure()
+@description('Password for the WordPress admin account')
+param wordPressAdminPassword string
+
+param wordPressTitle string
+
 var tags = {
   workload: appName
   environment: appEnv
@@ -136,7 +148,7 @@ resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
 // app service plan
 resource appServicePlan 'Microsoft.Web/serverfarms@2022-03-01' = {
   name: 'asp-${appName}-${appEnv}'
-  location: location 
+  location: location
   tags: tags
   kind: 'linux'
   sku: {
@@ -155,6 +167,41 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
   kind: 'app,linux'
   properties: {
     serverFarmId: appServicePlan.id
+    clientAffinityEnabled: false
+  }
+
+  // app settings
+  resource appSettings 'config' = {
+    name: 'appsettings'
+    properties: {
+      DOCKER_REGISTRY_SERVER_URL: 'https://mcr.microsoft.com'
+      DATABASE_HOST: '${databaseServerName}.mysql.database.azure.com'
+      DATABASE_NAME: databaseServer::database.name
+      DATABASE_USERNAME: databaseServerLogin
+      DATABASE_PASSWORD: databaseServerPassword
+      WORDPRESS_ADMIN_EMAIL: wordPressAdminEmail
+      WORDPRESS_ADMIN_USER: wordPressAdminUsername
+      WORDPRESS_ADMIN_PASSWORD: wordPressAdminPassword
+      WORDPRESS_TITLE: wordPressTitle
+      WORDPRESS_LOCALE_CODE: 'en_US'
+    }
+  }
+
+  // web settings (site config)
+  resource webSettings 'config' = {
+    name: 'web'
+    properties: {
+      linuxFxVersion: 'DOCKER|mcr.microsoft.com/appsvc/wordpress-alpine-php:latest'
+      vnetRouteAllEnabled: true
+      alwaysOn: true
+    }
+  }
+
+  resource networkConfig 'networkConfig' = {
+    name: 'virtualNetwork'
+    properties: {
+      subnetResourceId: virtualNetwork::appServiceSubnet.id
+    }
   }
 }
 
