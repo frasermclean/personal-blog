@@ -12,17 +12,17 @@ param appEnv string = 'main'
 param location string = resourceGroup().location
 
 @description('User login for the MySQL server')
-param databaseServerLogin string
+param databaseServerLogin string = 'dba-${uniqueString(resourceGroup().id)}'
 
 @secure()
 @description('Password for the MySQL server')
-param databaseServerPassword string
+param databaseServerPassword string = newGuid()
 
 @description('User login for the WordPress admin account')
-param wordPressAdminEmail string
+param wordPressAdminEmail string = 'admin@frasermclean.com'
 
 @description('User name for the WordPress admin account')
-param wordPressAdminUsername string
+param wordPressAdminUsername string = 'admin'
 
 @secure()
 @description('Password for the WordPress admin account')
