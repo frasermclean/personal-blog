@@ -12,7 +12,7 @@ param appEnv string = 'main'
 param location string = resourceGroup().location
 
 @description('User login for the MySQL server')
-param databaseServerLogin string = 'dba-${uniqueString(resourceGroup().id)}'
+param databaseServerLogin string = 'dba_${uniqueString(resourceGroup().id)}'
 
 @secure()
 @description('Password for the MySQL server')
@@ -237,7 +237,7 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
         }
         {
           name: 'DATABASE_USERNAME'
-          value: databaseServerLogin
+          value: databaseServer.properties.administratorLogin
         }
         {
           name: 'DATABASE_PASSWORD'
