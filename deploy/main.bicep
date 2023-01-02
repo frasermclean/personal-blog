@@ -79,6 +79,9 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2022-09-01' = {
     // container for the app service
     resource container 'containers' = {
       name: appName
+      properties: {
+        publicAccess: 'Blob'
+      }
     }
   }
 }
