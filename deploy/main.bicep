@@ -287,3 +287,42 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
     }
   }
 }
+
+// azure front door profile
+resource afdProfile 'Microsoft.Cdn/profiles@2021-06-01' = {
+  name: 'afd-${appName}-${appEnv}'
+  location: 'global'
+  tags: tags
+  sku: {
+    name: 'Standard_AzureFrontDoor'
+  }
+  properties: {
+    originResponseTimeoutSeconds: 60
+  }
+
+  // endpoint
+  resource endpoints 'afdEndpoints' = {
+    name: 'fde-${appName}-${appEnv}'
+    location: 'global'
+    properties: {
+      enabledState: 'Enabled'
+    }
+  }
+
+  // origin group
+  resource originGroup 'originGroups' = {
+    name: 'og-${appName}-${appEnv}'
+    properties: {
+      loadBalancingSettings: {
+        sampleSize: 4
+        successfulSamplesRequired: 3
+      }
+      healthProbeSettings: {
+        probePath: '/'
+        probeRequestType: 'HEAD'
+        probeProtocol: 'Http'
+        probeIntervalInSeconds: 240
+      }
+    }
+  }
+}
