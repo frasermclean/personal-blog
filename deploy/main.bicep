@@ -301,11 +301,33 @@ resource afdProfile 'Microsoft.Cdn/profiles@2021-06-01' = {
   }
 
   // endpoint
-  resource endpoints 'afdEndpoints' = {
+  resource endpoint 'afdEndpoints' = {
     name: 'fde-${appName}-${appEnv}'
     location: 'global'
     properties: {
       enabledState: 'Enabled'
+    }
+
+    resource route 'routes' = {
+      name: 'route-${appName}-${appEnv}'
+      dependsOn: [
+        originGroup::origin // ensure origin is created before route
+      ]
+      properties: {
+        forwardingProtocol: 'HttpsOnly'
+        linkToDefaultDomain: 'Enabled'
+        httpsRedirect: 'Enabled'
+        originGroup: {
+          id: originGroup.id
+        }
+        supportedProtocols: [
+          'Http'
+          'Https'
+        ]
+        patternsToMatch: [
+          '/*'
+        ]
+      }
     }
   }
 
@@ -324,5 +346,22 @@ resource afdProfile 'Microsoft.Cdn/profiles@2021-06-01' = {
         probeIntervalInSeconds: 240
       }
     }
+
+    // origin for app service
+    resource origin 'origins' = {
+      name: 'origin-${appName}-${appEnv}'
+      properties: {
+        hostName: appService.properties.defaultHostName
+        httpPort: 80
+        httpsPort: 443
+        enabledState: 'Enabled'
+        originHostHeader: appService.properties.defaultHostName
+        priority: 1
+        weight: 1000
+      }
+    }
   }
 }
+
+output appServiceHostName string = appService.properties.defaultHostName
+output frontdoorEndpointHostName string = afdProfile::endpoint.properties.hostName
