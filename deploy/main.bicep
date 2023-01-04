@@ -297,6 +297,20 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
           value: afdProfile::wwwCustomDomain.properties.hostName
         }
       ]
+      ipSecurityRestrictions: [
+        {
+          name: 'Allow traffic from Front Door'
+          tag: 'ServiceTag'
+          ipAddress: 'AzureFrontDoor.Backend'
+          action: 'Allow'
+          priority: 100
+          headers: {
+            'x-azure-fdid': [
+              afdProfile.properties.frontDoorId
+            ]
+          }
+        }
+      ]
     }
   }
 }
