@@ -335,17 +335,18 @@ resource afdProfile 'Microsoft.Cdn/profiles@2021-06-01' = {
       enabledState: 'Enabled'
     }
 
-    resource route 'routes' = {
-      name: 'route-${appName}-${appEnv}'
+    // app services route
+    resource appServicesRoute 'routes' = {
+      name: 'route-appServices'
       dependsOn: [
-        originGroup::origin // ensure origin is created before route
+        appServicesOriginGroup::appServiceOrigin // ensure origin is created before route
       ]
       properties: {
         forwardingProtocol: 'HttpsOnly'
         linkToDefaultDomain: 'Enabled'
         httpsRedirect: 'Enabled'
         originGroup: {
-          id: originGroup.id
+          id: appServicesOriginGroup.id
         }
         customDomains: [
           { id: apexCustomDomain.id }
@@ -360,11 +361,38 @@ resource afdProfile 'Microsoft.Cdn/profiles@2021-06-01' = {
         ]
       }
     }
+
+    // storage account route
+    resource storageAccountsRoute 'routes' = {
+      name: 'route-storageAccounts'
+      dependsOn: [
+        storageAccountsOriginGroup::storageAccountOrigin // ensure origin is created before route
+      ]
+      properties: {
+        forwardingProtocol: 'HttpsOnly'
+        linkToDefaultDomain: 'Enabled'
+        httpsRedirect: 'Enabled'
+        originGroup: {
+          id: storageAccountsOriginGroup.id
+        }
+        customDomains: [
+          { id: apexCustomDomain.id }
+          { id: wwwCustomDomain.id }
+        ]
+        supportedProtocols: [
+          'Http'
+          'Https'
+        ]
+        patternsToMatch: [
+          '/${storageAccount::blobServices::container.name}/*'
+        ]
+      }
+    }
   }
 
-  // origin group
-  resource originGroup 'originGroups' = {
-    name: 'og-${appName}-${appEnv}'
+  // origin group for app services
+  resource appServicesOriginGroup 'originGroups' = {
+    name: 'og-appServices'
     properties: {
       loadBalancingSettings: {
         sampleSize: 4
@@ -379,14 +407,44 @@ resource afdProfile 'Microsoft.Cdn/profiles@2021-06-01' = {
     }
 
     // origin for app service
-    resource origin 'origins' = {
-      name: 'origin-${appName}-${appEnv}'
+    resource appServiceOrigin 'origins' = {
+      name: 'origin-${appService.name}'
       properties: {
         hostName: appService.properties.defaultHostName
         httpPort: 80
         httpsPort: 443
         enabledState: 'Enabled'
         originHostHeader: appService.properties.defaultHostName
+        priority: 1
+        weight: 1000
+      }
+    }
+  }
+
+  resource storageAccountsOriginGroup 'originGroups' = {
+    name: 'og-storageAccounts'
+    properties: {
+      loadBalancingSettings: {
+        sampleSize: 4
+        successfulSamplesRequired: 3
+      }
+      healthProbeSettings: {
+        probePath: '/'
+        probeRequestType: 'HEAD'
+        probeProtocol: 'Http'
+        probeIntervalInSeconds: 100
+      }
+    }
+
+    // origin for storage account
+    resource storageAccountOrigin 'origins' = {
+      name: 'origin-${storageAccount.name}'
+      properties: {
+        hostName: '${storageAccount.name}.blob.${environment().suffixes.storage}'
+        httpPort: 80
+        httpsPort: 443
+        enabledState: 'Enabled'
+        originHostHeader: '${storageAccount.name}.blob.${environment().suffixes.storage}'
         priority: 1
         weight: 1000
       }
