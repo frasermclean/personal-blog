@@ -18,8 +18,8 @@ param databaseServerLogin string = 'dba_${uniqueString(resourceGroup().id)}'
 @description('Password for the MySQL server')
 param databaseServerPassword string = newGuid()
 
-@description('User login for the WordPress admin account')
-param wordPressAdminEmail string = 'admin@frasermclean.com'
+@description('Domain name for the WordPress site')
+param domainName string = 'frasermclean.com'
 
 @description('User name for the WordPress admin account')
 param wordPressAdminUsername string = 'admin'
@@ -34,6 +34,7 @@ var tags = {
 }
 
 var databaseServerName = 'mysql-${appName}-${appEnv}'
+var wordPressAdminEmail = '${wordPressAdminUsername}@${domainName}'
 
 // storage account for the app service
 resource storageAccount 'Microsoft.Storage/storageAccounts@2022-09-01' = {
@@ -283,6 +284,18 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
           name: 'WEBSITES_ENABLE_APP_SERVICE_STORAGE'
           value: 'true'
         }
+        {
+          name: 'AFD_ENABLED'
+          value: 'true'
+        }
+        {
+          name: 'AFD_ENDPOINT'
+          value: afdProfile::endpoint.properties.hostName
+        }
+        {
+          name: 'AFD_CUSTOM_DOMAIN'
+          value: afdProfile::wwwCustomDomain.properties.hostName
+        }
       ]
     }
   }
@@ -320,6 +333,10 @@ resource afdProfile 'Microsoft.Cdn/profiles@2021-06-01' = {
         originGroup: {
           id: originGroup.id
         }
+        customDomains: [
+          { id: apexCustomDomain.id }
+          { id: wwwCustomDomain.id }
+        ]
         supportedProtocols: [
           'Http'
           'Https'
@@ -343,7 +360,7 @@ resource afdProfile 'Microsoft.Cdn/profiles@2021-06-01' = {
         probePath: '/'
         probeRequestType: 'HEAD'
         probeProtocol: 'Http'
-        probeIntervalInSeconds: 240
+        probeIntervalInSeconds: 100
       }
     }
 
@@ -360,6 +377,53 @@ resource afdProfile 'Microsoft.Cdn/profiles@2021-06-01' = {
         weight: 1000
       }
     }
+  }
+
+  // apex custom domain
+  resource apexCustomDomain 'customDomains' = {
+    name: replace(domainName, '.', '-')
+    properties: {
+      hostName: domainName
+      tlsSettings: {
+        certificateType: 'ManagedCertificate'
+        minimumTlsVersion: 'TLS12'
+      }
+    }
+  }
+
+  // www custom domain
+  resource wwwCustomDomain 'customDomains' = {
+    name: replace('www.${domainName}', '.', '-')
+    properties: {
+      hostName: 'www.${domainName}'
+      tlsSettings: {
+        certificateType: 'ManagedCertificate'
+        minimumTlsVersion: 'TLS12'
+      }
+    }
+  }
+}
+
+// DNS records for apex custom domain
+// module dnsRecords 'dnsRecords.bicep' = {
+//   name: 'dnsRecords-${appName}-${appEnv}-apex'
+//   scope: resourceGroup('rg-frasermclean-shared')
+//   params: {
+//     dnsZoneName: domainName
+//     validationToken: afdProfile::apexCustomDomain.properties.validationProperties.validationToken
+//     frontdoorEndpointHostName: afdProfile::endpoint.properties.hostName
+//   }
+// }
+
+// DNS records for www custom domain
+module dnsRecordsWww 'dnsRecords.bicep' = {
+  name: 'dnsRecords-${appName}-${appEnv}-www'
+  scope: resourceGroup('rg-frasermclean-shared')
+  params: {
+    dnsZoneName: domainName
+    subDomainName: 'www'
+    validationToken: afdProfile::wwwCustomDomain.properties.validationProperties.validationToken
+    frontdoorEndpointHostName: afdProfile::endpoint.properties.hostName
   }
 }
 
