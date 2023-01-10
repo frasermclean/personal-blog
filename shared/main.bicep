@@ -12,12 +12,26 @@ param workload string = 'frasermclean'
 @description('Environment name for tagging and resource naming purposes')
 param env string = 'shared'
 
+@description('User login for the MySQL server')
+param databaseServerLogin string = 'dba_${uniqueString(resourceGroup().id)}'
+
+@secure()
+@description('Password for the MySQL server')
+param databaseServerPassword string = newGuid()
+
 var tags = {
   workload: workload
   environment: env
 }
 
+@description('Name of the storage account resource')
 var storageAccountName = 'st${workload}${env}'
+
+@description('Subnet name for the app service')
+var appServiceSubnetName = 'subnet-appService'
+
+@description('Subnet name for the database')
+var databaseSubnetName = 'subnet-database'
 
 // dns zone
 resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' = {
@@ -103,7 +117,7 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-07-01' = {
     }
     subnets: [
       {
-        name: 'subnet-appService'
+        name: appServiceSubnetName
         properties: {
           addressPrefix: '10.1.1.0/24'
           delegations: [
@@ -117,7 +131,7 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-07-01' = {
         }
       }
       {
-        name: 'subnet-database'
+        name: databaseSubnetName
         properties: {
           addressPrefix: '10.1.2.0/24'
           privateEndpointNetworkPolicies: 'Enabled'
@@ -136,11 +150,11 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-07-01' = {
   }
 
   resource appServiceSubnet 'subnets' existing = {
-    name: 'AppServiceSubnet'
+    name: appServiceSubnetName
   }
 
   resource databaseSubnet 'subnets' existing = {
-    name: 'DatabaseSubnet'
+    name: databaseSubnetName
   }
 }
 
@@ -161,4 +175,30 @@ resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   }
 }
 
-output nameServers array = dnsZone.properties.nameServers
+// MySQL database server
+resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
+  name: 'mysql-${workload}-${env}'
+  location: location
+  tags: tags
+  sku: {
+    name: 'Standard_B1s'
+    tier: 'Burstable'
+  }
+  properties: {
+    version: '8.0.21'
+    administratorLogin: databaseServerLogin
+    administratorLoginPassword: databaseServerPassword
+    storage: {
+      storageSizeGB: 20
+      iops: 360
+      autoGrow: 'Enabled'
+    }
+    network: {
+      privateDnsZoneResourceId: privateDnsZone.id
+      delegatedSubnetResourceId: virtualNetwork::databaseSubnet.id
+    }
+  }
+  dependsOn: [
+    privateDnsZone::virtualNetworkLink
+  ]
+}
