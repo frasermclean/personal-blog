@@ -48,6 +48,28 @@ resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' = {
       }
     }
   }
+
+  // azure front door custom domain validation for apex domain
+  resource apexCustomDomainAuthorizationRecord 'CNAME' = {
+    name: '_dnsauth'
+    properties: {
+      TTL: 3600
+      CNAMERecord: {
+        cname: afdProfile::apexCustomDomain.properties.validationProperties.validationToken
+      }
+    }
+  }
+
+  // azure front door custom domain validation for www subdomain
+  resource wwwCustomDomainAuthorizationRecord 'CNAME' = {
+    name: '_dnsauth.www'
+    properties: {
+      TTL: 3600
+      CNAMERecord: {
+        cname: afdProfile::wwwCustomDomain.properties.validationProperties.validationToken
+      }
+    }
+  }
 }
 
 // storage account for the app service
@@ -201,4 +223,41 @@ resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
   dependsOn: [
     privateDnsZone::virtualNetworkLink
   ]
+}
+
+// azure front door profile
+resource afdProfile 'Microsoft.Cdn/profiles@2021-06-01' = {
+  name: 'afd-${workload}-${env}'
+  location: 'global'
+  tags: tags
+  sku: {
+    name: 'Standard_AzureFrontDoor'
+  }
+  properties: {
+    originResponseTimeoutSeconds: 60
+  }
+
+  // apex custom domain
+  resource apexCustomDomain 'customDomains' = {
+    name: replace(domainName, '.', '-')
+    properties: {
+      hostName: domainName
+      tlsSettings: {
+        certificateType: 'ManagedCertificate'
+        minimumTlsVersion: 'TLS12'
+      }
+    }
+  }
+
+  // www custom domain
+  resource wwwCustomDomain 'customDomains' = {
+    name: replace('www.${domainName}', '.', '-')
+    properties: {
+      hostName: 'www.${domainName}'
+      tlsSettings: {
+        certificateType: 'ManagedCertificate'
+        minimumTlsVersion: 'TLS12'
+      }
+    }
+  }
 }
