@@ -39,6 +39,7 @@ resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' = {
   location: 'global'
   tags: tags
 
+  // storage account blob custom domain CNAME record
   resource storageAccountCnameRecord 'CNAME' = {
     name: 'blob'
     properties: {
@@ -50,24 +51,24 @@ resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' = {
   }
 
   // azure front door custom domain validation for apex domain
-  resource apexCustomDomainAuthorizationRecord 'CNAME' = {
+  resource apexCustomDomainAuthorizationRecord 'TXT' = {
     name: '_dnsauth'
     properties: {
       TTL: 3600
-      CNAMERecord: {
-        cname: afdProfile::apexCustomDomain.properties.validationProperties.validationToken
-      }
+      TXTRecords: [
+        { value: [ afdProfile::apexCustomDomain.properties.validationProperties.validationToken ] }
+      ]
     }
   }
 
   // azure front door custom domain validation for www subdomain
-  resource wwwCustomDomainAuthorizationRecord 'CNAME' = {
+  resource wwwCustomDomainAuthorizationRecord 'TXT' = {
     name: '_dnsauth.www'
     properties: {
       TTL: 3600
-      CNAMERecord: {
-        cname: afdProfile::wwwCustomDomain.properties.validationProperties.validationToken
-      }
+      TXTRecords: [
+        { value: [ afdProfile::wwwCustomDomain.properties.validationProperties.validationToken ] }
+      ]
     }
   }
 }
