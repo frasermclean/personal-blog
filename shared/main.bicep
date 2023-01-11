@@ -178,7 +178,7 @@ resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
   location: location
   tags: tags
   sku: {
-    name: 'Standard_B1s'
+    name: 'Standard_B1ms'
     tier: 'Burstable'
   }
   properties: {
@@ -187,7 +187,7 @@ resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
     administratorLoginPassword: databaseServerPassword
     storage: {
       storageSizeGB: 20
-      iops: 360
+      iops: 400
       autoGrow: 'Enabled'
     }
     network: {
