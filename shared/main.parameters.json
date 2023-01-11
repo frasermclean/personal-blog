@@ -2,8 +2,17 @@
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
+    "workload": {
+      "value": "frasermclean-shared"
+    },
     "domainName": {
       "value": "frasermclean.com"
+    },
+    "databaseServerLogin": {
+      "value": "superuser"
+    },
+    "databaseServerPassword": {
+      "value": "NPY7fwp8xzq4fkr.mfc"
     }
   }
 }

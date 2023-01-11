@@ -7,10 +7,7 @@ param domainName string
 param location string = resourceGroup().location
 
 @description('Workload name for tagging and resource naming purposes')
-param workload string = 'frasermclean'
-
-@description('Environment name for tagging and resource naming purposes')
-param env string = 'shared'
+param workload string
 
 @description('User login for the MySQL server')
 param databaseServerLogin string = 'dba_${uniqueString(resourceGroup().id)}'
@@ -21,11 +18,10 @@ param databaseServerPassword string = newGuid()
 
 var tags = {
   workload: workload
-  environment: env
 }
 
 @description('Name of the storage account resource')
-var storageAccountName = 'st${workload}${env}'
+var storageAccountName = replace('st${workload}', '-', '')
 
 @description('Subnet name for the app service')
 var appServiceSubnetName = 'subnet-appService'
@@ -47,28 +43,6 @@ resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' = {
       CNAMERecord: {
         cname: '${storageAccountName}.blob.${environment().suffixes.storage}'
       }
-    }
-  }
-
-  // azure front door custom domain validation for apex domain
-  resource apexCustomDomainAuthorizationRecord 'TXT' = {
-    name: '_dnsauth'
-    properties: {
-      TTL: 3600
-      TXTRecords: [
-        { value: [ afdProfile::apexCustomDomain.properties.validationProperties.validationToken ] }
-      ]
-    }
-  }
-
-  // azure front door custom domain validation for www subdomain
-  resource wwwCustomDomainAuthorizationRecord 'TXT' = {
-    name: '_dnsauth.www'
-    properties: {
-      TTL: 3600
-      TXTRecords: [
-        { value: [ afdProfile::wwwCustomDomain.properties.validationProperties.validationToken ] }
-      ]
     }
   }
 }
@@ -200,7 +174,7 @@ resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
 
 // MySQL database server
 resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
-  name: 'mysql-${workload}-${env}'
+  name: 'mysql-${workload}'
   location: location
   tags: tags
   sku: {
@@ -228,7 +202,7 @@ resource databaseServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
 
 // azure front door profile
 resource afdProfile 'Microsoft.Cdn/profiles@2021-06-01' = {
-  name: 'afd-${workload}-${env}'
+  name: 'afd-${workload}'
   location: 'global'
   tags: tags
   sku: {
@@ -236,29 +210,5 @@ resource afdProfile 'Microsoft.Cdn/profiles@2021-06-01' = {
   }
   properties: {
     originResponseTimeoutSeconds: 60
-  }
-
-  // apex custom domain
-  resource apexCustomDomain 'customDomains' = {
-    name: replace(domainName, '.', '-')
-    properties: {
-      hostName: domainName
-      tlsSettings: {
-        certificateType: 'ManagedCertificate'
-        minimumTlsVersion: 'TLS12'
-      }
-    }
-  }
-
-  // www custom domain
-  resource wwwCustomDomain 'customDomains' = {
-    name: replace('www.${domainName}', '.', '-')
-    properties: {
-      hostName: 'www.${domainName}'
-      tlsSettings: {
-        certificateType: 'ManagedCertificate'
-        minimumTlsVersion: 'TLS12'
-      }
-    }
   }
 }
