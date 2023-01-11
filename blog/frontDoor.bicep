@@ -68,6 +68,9 @@ resource profile 'Microsoft.Cdn/profiles@2021-06-01' existing = {
           { id: apexCustomDomain.id }
           { id: wwwCustomDomain.id }
         ]
+        ruleSets: [
+          { id: ruleSet.id }
+        ]
         supportedProtocols: [
           'Http'
           'Https'
@@ -111,6 +114,7 @@ resource profile 'Microsoft.Cdn/profiles@2021-06-01' existing = {
     }
   }
 
+  // origin group for storage accounts
   resource storageAccountsOriginGroup 'originGroups' = {
     name: 'og-blog-storage'
     properties: {
@@ -132,6 +136,113 @@ resource profile 'Microsoft.Cdn/profiles@2021-06-01' existing = {
         originHostHeader: '${storageAccountName}.blob.${environment().suffixes.storage}'
         priority: 1
         weight: 1000
+      }
+    }
+  }
+
+  // rule set
+  resource ruleSet 'ruleSets' = {
+    name: 'blogRuleSet'
+
+    // rule to override storage container requests
+    resource storageContainerRule 'rules' = {
+      name: 'storageContainerOverride'
+      properties: {
+        order: 1
+        matchProcessingBehavior: 'Stop'
+        conditions: [
+          {
+            name: 'UrlPath'
+            parameters: {
+              typeName: 'DeliveryRuleUrlPathMatchConditionParameters'
+              operator: 'BeginsWith'
+              negateCondition: false
+              matchValues: [ '${storageContainerName}/wp-content/uploads/' ]
+              transforms: [ 'Lowercase' ]
+            }
+          }
+        ]
+        actions: [
+          {
+            name: 'RouteConfigurationOverride'
+            parameters: {
+              typeName: 'DeliveryRuleRouteConfigurationOverrideActionParameters'
+              cacheConfiguration: {
+                isCompressionEnabled: 'Enabled'
+                queryStringCachingBehavior: 'UseQueryString'
+                cacheBehavior: 'OverrideAlways'
+                cacheDuration: '3.00:00:00'
+              }
+              originGroupOverride: {
+                forwardingProtocol: 'MatchRequest'
+                originGroup: {
+                  id: storageAccountsOriginGroup.id
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+
+    // rule to cache static content
+    resource cacheStaticContentRule 'rules' = {
+      name: 'cacheStaticContent'
+      properties: {
+        order: 2
+        matchProcessingBehavior: 'Stop'
+        conditions: [
+          {
+            name: 'UrlPath'
+            parameters: {
+              typeName: 'DeliveryRuleUrlPathMatchConditionParameters'
+              operator: 'BeginsWith'
+              negateCondition: false
+              matchValues: [
+                'wp-includes/'
+                'wp-content/themes/'
+              ]
+              transforms: [ 'Lowercase' ]
+            }
+          }
+          {
+            name: 'UrlFileExtension'
+            parameters: {
+              typeName: 'DeliveryRuleUrlFileExtensionMatchConditionParameters'
+              operator: 'Equal'
+              negateCondition: false
+              matchValues: [
+                'css'
+                'js'
+                'gif'
+                'png'
+                'jpg'
+                'ico'
+                'ttf'
+                'otf'
+                'woff'
+                'woff2'
+              ]
+              transforms: [
+                'Lowercase'
+              ]
+            }
+          }
+        ]
+        actions: [
+          {
+            name: 'RouteConfigurationOverride'
+            parameters: {
+              typeName: 'DeliveryRuleRouteConfigurationOverrideActionParameters'
+              cacheConfiguration: {
+                isCompressionEnabled: 'Enabled'
+                queryStringCachingBehavior: 'UseQueryString'
+                cacheBehavior: 'OverrideAlways'
+                cacheDuration: '3.00:00:00'
+              }
+            }
+          }
+        ]
       }
     }
   }
