@@ -16,7 +16,7 @@ param storageAccountName string
 param storageContainerName string
 
 // azure front door profile
-resource afdProfile 'Microsoft.Cdn/profiles@2021-06-01' existing = {
+resource profile 'Microsoft.Cdn/profiles@2021-06-01' existing = {
   name: 'afd-frasermclean-shared'
 
   // apex custom domain
@@ -147,7 +147,7 @@ resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' existing = {
     properties: {
       TTL: 3600
       TXTRecords: [
-        { value: [ afdProfile::apexCustomDomain.properties.validationProperties.validationToken ] }
+        { value: [ profile::apexCustomDomain.properties.validationProperties.validationToken ] }
       ]
     }
   }
@@ -158,7 +158,7 @@ resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' existing = {
     properties: {
       TTL: 3600
       targetResource: {
-        id: afdProfile::endpoint.id
+        id: profile::endpoint.id
       }
     }
   }
@@ -169,7 +169,7 @@ resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' existing = {
     properties: {
       TTL: 3600
       TXTRecords: [
-        { value: [ afdProfile::wwwCustomDomain.properties.validationProperties.validationToken ] }
+        { value: [ profile::wwwCustomDomain.properties.validationProperties.validationToken ] }
       ]
     }
   }
@@ -180,12 +180,12 @@ resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' existing = {
     properties: {
       TTL: 3600
       CNAMERecord: {
-        cname: afdProfile::endpoint.properties.hostName
+        cname: profile::endpoint.properties.hostName
       }
     }
   }
 }
 
-output frontDoorId string = afdProfile.properties.frontDoorId
-output endpointHostName string = afdProfile::endpoint.properties.hostName
-output endpointCustomDomain string = afdProfile::apexCustomDomain.properties.hostName
+output frontDoorId string = profile.properties.frontDoorId
+output endpointHostName string = profile::endpoint.properties.hostName
+output endpointCustomDomain string = profile::apexCustomDomain.properties.hostName
