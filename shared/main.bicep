@@ -235,7 +235,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' = {
       defaultAction: 'Allow'
       virtualNetworkRules: [
         {
-          id: virtualNetwork.id
+          id: virtualNetwork::appServiceSubnet.id
         }
       ]
     }
