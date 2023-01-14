@@ -117,6 +117,9 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-07-01' = {
         name: appServiceSubnetName
         properties: {
           addressPrefix: '10.1.1.0/24'
+          serviceEndpoints: [
+            { service: 'Microsoft.KeyVault' }
+          ]
           delegations: [
             {
               name: 'dlg-appService'
@@ -210,5 +213,39 @@ resource afdProfile 'Microsoft.Cdn/profiles@2021-06-01' = {
   }
   properties: {
     originResponseTimeoutSeconds: 60
+  }
+}
+
+// key vault
+resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' = {
+  name: 'kv-${workload}'
+  location: location
+  tags: tags
+  properties: {
+    sku: {
+      name: 'standard'
+      family: 'A'
+    }
+    tenantId: tenant().tenantId
+    enableRbacAuthorization: true
+    enabledForTemplateDeployment: true
+    publicNetworkAccess: 'Enabled'
+    networkAcls: {
+      bypass: 'AzureServices'
+      defaultAction: 'Allow'
+      virtualNetworkRules: [
+        {
+          id: virtualNetwork.id
+        }
+      ]
+    }
+  }
+
+  resource databaseServerPasswordSecret 'secrets' = {
+    name: 'databaseServerPassword'
+    properties: {
+      value: databaseServerPassword
+      contentType: 'text/plain'
+    }
   }
 }
