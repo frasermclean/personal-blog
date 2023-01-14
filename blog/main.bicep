@@ -12,10 +12,6 @@ param domainName string
 @description('Name of the shared resource group')
 param sharedResourceGroupName string
 
-@secure()
-@description('Password for the MySQL server')
-param databaseServerPassword string
-
 @description('User name for the WordPress admin account')
 param wordPressAdminUsername string = 'admin'
 
@@ -58,6 +54,12 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-07-01' existing 
   resource appServiceSubnet 'subnets' existing = {
     name: 'subnet-appService'
   }
+}
+
+// key vault (existing)
+resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
+  name: 'kv-frasermclean-shared'
+  scope: resourceGroup(sharedResourceGroupName)
 }
 
 // database
@@ -113,6 +115,7 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
     serverFarmId: appServicePlan.id
     virtualNetworkSubnetId: virtualNetwork::appServiceSubnet.id
     clientAffinityEnabled: false
+    keyVaultReferenceIdentity: appServiceIdentity.id
     siteConfig: {
       linuxFxVersion: 'DOCKER|mcr.microsoft.com/appsvc/wordpress-alpine-php:latest'
       vnetRouteAllEnabled: true
@@ -136,7 +139,7 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
         }
         {
           name: 'DATABASE_PASSWORD'
-          value: databaseServerPassword
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=databaseServerPassword)'
         }
         {
           name: 'WORDPRESS_ADMIN_EMAIL'

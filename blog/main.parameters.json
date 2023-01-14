@@ -11,9 +11,6 @@
     "sharedResourceGroupName": {
       "value": "rg-frasermclean-shared"
     },
-    "databaseServerPassword": {
-      "value": "NPY7fwp8xzq4fkr.mfc"
-    },
     "wordPressAdminPassword": {
       "value": "ftn!khp!mcv!wvk8JGD"
     }
