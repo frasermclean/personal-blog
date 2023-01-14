@@ -171,7 +171,7 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
         }
         {
           name: 'STORAGE_ACCOUNT_KEY'
-          value: listKeys(storageAccount.id, storageAccount.apiVersion).keys[0].value
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=storageAccountKey)'
         }
         {
           name: 'STORAGE_ACCOUNT_NAME'

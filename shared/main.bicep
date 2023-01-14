@@ -248,4 +248,12 @@ resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' = {
       contentType: 'text/plain'
     }
   }
+
+  resource storageAccountKeySecret 'secrets' = {
+    name: 'storageAccountKey'
+    properties: {
+      value: storageAccount.listKeys().keys[0].value
+      contentType: 'text/plain'
+    }
+  }
 }
