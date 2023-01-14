@@ -96,6 +96,13 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2022-03-01' = {
   }
 }
 
+// user assigned managed identity for the app service
+resource appServiceIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
+  name: 'id-${workload}'
+  location: location
+  tags: tags
+}
+
 // app service
 resource appService 'Microsoft.Web/sites@2022-03-01' = {
   name: appServiceName
@@ -198,6 +205,12 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
           }
         }
       ]
+    }
+  }
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${appServiceIdentity.id}': {}
     }
   }
 }
