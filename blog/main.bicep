@@ -111,6 +111,12 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
   location: location
   tags: tags
   kind: 'app,linux'
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${appServiceIdentity.id}': {}
+    }
+  }
   properties: {
     serverFarmId: appServicePlan.id
     virtualNetworkSubnetId: virtualNetwork::appServiceSubnet.id
@@ -208,12 +214,6 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
           }
         }
       ]
-    }
-  }
-  identity: {
-    type: 'UserAssigned'
-    userAssignedIdentities: {
-      '${appServiceIdentity.id}': {}
     }
   }
 }
