@@ -16,7 +16,7 @@ param databaseServerLogin string = 'dba_${uniqueString(resourceGroup().id)}'
 
 @secure()
 @description('Password for the MySQL server')
-param databaseServerPassword string = newGuid()
+param databaseServerPassword string = replace(newGuid(), '-', '')
 
 var tags = {
   workload: appName
