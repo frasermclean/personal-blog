@@ -31,21 +31,6 @@ var databaseName = 'blog'
 @description('Name of the app service')
 var appServiceName = 'app-${workload}'
 
-// storage account for the app service (existing)
-resource storageAccount 'Microsoft.Storage/storageAccounts@2022-09-01' existing = {
-  name: 'stfrasermcleanshared'
-  scope: resourceGroup(sharedResourceGroupName)
-
-  resource blobServices 'blobServices' existing = {
-    name: 'default'
-
-    // container for the app service
-    resource publicContainer 'containers' existing = {
-      name: 'public'
-    }
-  }
-}
-
 // virtual network (existing)
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-07-01' existing = {
   name: 'vnet-frasermclean-shared'
@@ -68,19 +53,6 @@ module database 'database.bicep' = {
   scope: resourceGroup(sharedResourceGroupName)
   params: {
     databaseName: databaseName
-  }
-}
-
-// azure front door endpoint
-module frontDoor 'frontDoor.bicep' = {
-  name: 'frontDoor-${workload}'
-  scope: resourceGroup(sharedResourceGroupName)
-  params: {
-    workload: workload
-    domainName: domainName
-    appServiceName: appServiceName
-    storageAccountName: storageAccount.name
-    storageContainerName: storageAccount::blobServices::publicContainer.name
   }
 }
 
@@ -126,11 +98,8 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
       linuxFxVersion: 'DOCKER|mcr.microsoft.com/appsvc/wordpress-alpine-php:latest'
       vnetRouteAllEnabled: true
       alwaysOn: true
+      ipSecurityRestrictions: []
       appSettings: [
-        {
-          name: 'DOCKER_REGISTRY_SERVER_URL'
-          value: 'https://mcr.microsoft.com'
-        }
         {
           name: 'DATABASE_HOST'
           value: database.outputs.databaseServerFullyQualifiedDomainName
@@ -148,6 +117,14 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
           value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=databaseServerPassword)'
         }
         {
+          name: 'DOCKER_REGISTRY_SERVER_URL'
+          value: 'https://mcr.microsoft.com'
+        }
+        {
+          name: 'WEBSITES_ENABLE_APP_SERVICE_STORAGE'
+          value: 'true'
+        }
+        {
           name: 'WORDPRESS_ADMIN_EMAIL'
           value: wordPressAdminEmail
         }
@@ -162,56 +139,6 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
         {
           name: 'WORDPRESS_LOCALE_CODE'
           value: 'en_AU'
-        }
-        {
-          name: 'BLOB_CONTAINER_NAME'
-          value: storageAccount::blobServices::publicContainer.name
-        }
-        {
-          name: 'BLOB_STORAGE_ENABLED'
-          value: 'true'
-        }
-        {
-          name: 'BLOB_STORAGE_URL'
-          value: '${storageAccount.name}.blob.${environment().suffixes.storage}'
-        }
-        {
-          name: 'STORAGE_ACCOUNT_KEY'
-          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=storageAccountKey)'
-        }
-        {
-          name: 'STORAGE_ACCOUNT_NAME'
-          value: storageAccount.name
-        }
-        {
-          name: 'WEBSITES_ENABLE_APP_SERVICE_STORAGE'
-          value: 'true'
-        }
-        {
-          name: 'AFD_ENABLED'
-          value: 'true'
-        }
-        {
-          name: 'AFD_ENDPOINT'
-          value: frontDoor.outputs.endpointHostName
-        }
-        {
-          name: 'AFD_CUSTOM_DOMAIN'
-          value: frontDoor.outputs.endpointCustomDomain
-        }
-      ]
-      ipSecurityRestrictions: [
-        {
-          name: 'Allow traffic from Front Door'
-          tag: 'ServiceTag'
-          ipAddress: 'AzureFrontDoor.Backend'
-          action: 'Allow'
-          priority: 100
-          headers: {
-            'x-azure-fdid': [
-              frontDoor.outputs.frontDoorId
-            ]
-          }
         }
       ]
     }
