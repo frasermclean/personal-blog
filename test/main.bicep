@@ -18,6 +18,9 @@ param databaseServerLogin string = 'dba_${uniqueString(resourceGroup().id)}'
 @description('Password for the MySQL server')
 param databaseServerPassword string = replace(newGuid(), '-', '')
 
+@description('Array of additional lines to write to wp-config.php')
+param wordpressConfigExtras array
+
 var tags = {
   workload: appName
   environment: appEnv
@@ -173,6 +176,14 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
         {
           name: 'DOCKER_REGISTRY_SERVER_URL'
           value: 'https://hub.docker.com'
+        }
+        {
+          name: 'HTTP_X_FORWARDED_PROTO' // enable TLS behind a reverse proxy (app service)
+          value: 'true'
+        }
+        {
+          name: 'WORDPRESS_CONFIG_EXTRA' // additional lines to write to wp-config.php
+          value: join(wordpressConfigExtras, '\n')
         }
         {
           name: 'WORDPRESS_DB_HOST'

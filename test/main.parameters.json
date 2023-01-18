@@ -10,6 +10,12 @@
     },
     "sharedResourceGroupName": {
       "value": "rg-frasermclean-shared"
+    },
+    "wordpressConfigExtras": {
+      "value": [
+        "define('MYSQL_CLIENT_FLAGS', MYSQLI_CLIENT_SSL);",
+        "define('MYSQL_SSL_CERT','/etc/ssl/certs/DigiCert_Global_Root_CA.pem');"
+      ]
     }
   }
 }
