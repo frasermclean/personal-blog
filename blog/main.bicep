@@ -121,6 +121,10 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
           value: 'https://mcr.microsoft.com'
         }
         {
+          name: 'PHP_INI_SCAN_DIR'
+          value: '/usr/local/etc/php/conf.d:/home/site/ini'
+        }
+        {
           name: 'WEBSITES_ENABLE_APP_SERVICE_STORAGE'
           value: 'true'
         }
