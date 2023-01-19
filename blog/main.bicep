@@ -143,13 +143,55 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
       ]
     }
   }
+
+  // host name domain binding
+  resource hostNameBinding 'hostNameBindings' = {
+    name: domainName
+    properties: {
+      siteName: appService.name
+      hostNameType: 'Verified'
+    }
+  }
 }
 
+// app service managed certificate for apex domain
+resource managedCertificate 'Microsoft.Web/certificates@2022-03-01' = {
+  name: 'cert-${replace(domainName, '.', '-')}'
+  location: location
+  tags: tags
+  properties: {
+    serverFarmId: appServicePlan.id
+    canonicalName: appService::hostNameBinding.name
+  }
+}
+
+// role assignment for app service identity to access key vault
 module roleAssignment 'roleAssignment.bicep' = {
   name: 'roleAssignment-${workload}'
   scope: resourceGroup(sharedResourceGroupName)
   params: {
     principalId: appServiceIdentity.properties.principalId
     builtInRole: '4633458b-17de-408a-b874-0445c86b69e6' // Key Vault Secrets User
+  }
+}
+
+// custom domain recoreds
+module dnsRecords 'dnsRecords.bicep' = {
+  name: 'dnsRecords-${workload}'
+  scope: resourceGroup(sharedResourceGroupName)
+  params: {
+    domainName: domainName
+    verificationId: appService.properties.customDomainVerificationId
+    appServiceIpAddress: appService.properties.inboundIpAddress
+  }
+}
+
+// enable SNI binding for custom hostname
+module sniEnable 'sniEnable.bicep' = {
+  name: 'sniEnable'
+  params: {
+    appServiceName: appService.name
+    certificateThumbprint: managedCertificate.properties.thumbprint
+    hostname: appService::hostNameBinding.name
   }
 }
