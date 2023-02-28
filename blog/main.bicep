@@ -9,6 +9,9 @@ param location string = resourceGroup().location
 @description('Domain name for the WordPress site')
 param domainName string
 
+@description('Custom subdomains to create DNS records for')
+param subDomains array = [ '', 'www' ]
+
 @description('Name of the shared resource group')
 param sharedResourceGroupName string
 
@@ -147,27 +150,29 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
       ]
     }
   }
-
-  // host name domain binding
-  resource hostNameBinding 'hostNameBindings' = {
-    name: domainName
-    properties: {
-      siteName: appService.name
-      hostNameType: 'Verified'
-    }
-  }
 }
 
+// custom host name domain bindings
+@batchSize(1) // deploy sequentially
+resource hostNameBinding 'Microsoft.Web/sites/hostNameBindings@2022-03-01' = [for subDomain in subDomains: {
+  name: empty(subDomain) ? domainName : '${subDomain}.${domainName}'
+  parent: appService
+  properties: {
+    siteName: appService.name
+    hostNameType: 'Verified'
+  }
+}]
+
 // app service managed certificate for apex domain
-resource managedCertificate 'Microsoft.Web/certificates@2022-03-01' = {
-  name: 'cert-${replace(domainName, '.', '-')}'
+resource managedCertificate 'Microsoft.Web/certificates@2022-03-01' = [for (subDomain, i) in subDomains: {
+  name: 'cert-${replace(hostNameBinding[i].name, '.', '-')}'
   location: location
   tags: tags
   properties: {
     serverFarmId: appServicePlan.id
-    canonicalName: appService::hostNameBinding.name
+    canonicalName: hostNameBinding[i].name
   }
-}
+}]
 
 // role assignment for app service identity to access key vault
 module roleAssignment 'roleAssignment.bicep' = {
@@ -180,22 +185,24 @@ module roleAssignment 'roleAssignment.bicep' = {
 }
 
 // custom domain recoreds
-module dnsRecords 'dnsRecords.bicep' = {
-  name: 'dnsRecords-${workload}'
+module dnsRecords 'dnsRecords.bicep' = [for (subDomain, i) in subDomains: {
+  name: 'dnsRecords-${workload}-${empty(subDomain) ? 'apex' : subDomain}'
   scope: resourceGroup(sharedResourceGroupName)
   params: {
     domainName: domainName
-    verificationId: appService.properties.customDomainVerificationId
+    subDomainName: subDomain
+    customDomainVerificationId: appService.properties.customDomainVerificationId
     appServiceIpAddress: appService.properties.inboundIpAddress
+    appServiceDefaultHostName: appService.properties.defaultHostName
   }
-}
+}]
 
-// enable SNI binding for custom hostname
-module sniEnable 'sniEnable.bicep' = {
-  name: 'sniEnable'
+// enable SNI bindings for custom hostnames
+module sniBinding 'sniBinding.bicep' = [for (subDomain, i) in subDomains: {
+  name: 'sniBinding-${empty(subDomain) ? 'apex' : subDomain}'
   params: {
     appServiceName: appService.name
-    certificateThumbprint: managedCertificate.properties.thumbprint
-    hostname: appService::hostNameBinding.name
+    certificateThumbprint: managedCertificate[i].properties.thumbprint
+    hostname: hostNameBinding[i].name
   }
-}
+}]
