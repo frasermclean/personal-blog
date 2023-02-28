@@ -97,10 +97,12 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
     virtualNetworkSubnetId: virtualNetwork::appServiceSubnet.id
     clientAffinityEnabled: false
     keyVaultReferenceIdentity: appServiceIdentity.id
+    httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'DOCKER|mcr.microsoft.com/appsvc/wordpress-alpine-php:latest'
       vnetRouteAllEnabled: true
       alwaysOn: true
+      http20Enabled: true
       ipSecurityRestrictions: []
       appSettings: [
         {
